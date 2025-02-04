@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>Code Challenge ThreeJS</title>
+
+  <link
+    rel="stylesheet"
+    href="./index.css"
+  >
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/themes/nano.min.css"
+  />
+  <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@v0.173.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@v0.173.0/examples/jsm/"
+        }
+      }
+    </script>
+</head>
+
+<body>
+
+  <div id="controls">
+    <select
+      id="modelSelector"
+      class="styled-select"
+    >
+      <option value="">Select a model</option>
+    </select>
+    <div id="colorPicker"></div>
+  </div>
+  <div id="heading">
+    <h1>Code Challenge</h1>
+    <div class="border"></div>
+  </div>
+  <div id="progress-container">
+    <div>Select a model</div>
+  </div>
+  <div class="canvas-element">
+
+    <canvas class="webgl"></canvas>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/pickr.min.js"></script>
+
+  <script
+    type="module"
+    src="./main.js"
+  ></script>
+</body>
+
+</html>
