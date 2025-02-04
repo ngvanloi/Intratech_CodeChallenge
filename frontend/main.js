@@ -4,13 +4,16 @@ import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import Stats from 'three/addons/libs/stats.module.js';
+import * as dat from "https://cdn.skypack.dev/dat.gui";
 
 const API_URL = 'http://localhost:3000/api/models';
+const params = { model: 'Select a model', color: "#fff" };
 let selectedObject = null;
 let defaultColorPicker = "#fff";
 let model_container = document.querySelector('.webgl');
 
 // Set up the Three.js scene
+const gui = new dat.GUI();
 const scene = new THREE.Scene();
 
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000);
@@ -74,6 +77,20 @@ async function fetchModels() {
     option.textContent = model.name;
     selector.appendChild(option);
   });
+function createGUI(models) {
+  const modelMap = {};
+  models.forEach(model => {
+    modelMap[model.name] = model.url;
+  });
+
+  gui.add(params, 'model', ['Select a model', ...Object.keys(modelMap)])
+    .name("Model")
+    .onChange(value => handleModelSelection(value, modelMap));
+
+  gui.addColor(params, "color")
+    .name("Color")
+    .onChange(value => updateModelColor(value));
+}
 }
 
 // Load the selected model
@@ -115,31 +132,10 @@ function resetScene() {
   }
 }
 
-const pickr = Pickr.create({
-  el: '#colorPicker',
-  theme: 'nano',
-  default: defaultColorPicker,
-  components: {
-    preview: true,
-    opacity: true,
-    hue: true,
-    interaction: {
-      input: true,
-      save: true,
-      rgba: true,
-    }
-  }
-});
 
-// Listen for color changes
-pickr.on('change', (color) => {
-  const colorHex = color.toHEXA().toString();
-  selectedObject.traverse((child) => {
     if (child.isMesh) {
-      child.material.color.set(colorHex);
     }
   });
-});
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -156,8 +152,4 @@ function animate() {
 
 // Initialize
 fetchModels();
-document.getElementById('modelSelector').addEventListener('change', (event) => {
-  const url = `http://localhost:3000${event.target.value}`;
-  loadModel(url);
-});
 animate();
