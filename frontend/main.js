@@ -23,12 +23,12 @@ const controls = setupControls();
 
 // Scene setup
 addGround();
-addLighting();
+const spotLight = addLighting();
 
 // Functions
 function createCamera() {
-  const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000);
-  camera.position.set(4, 5, 11);
+  const camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 1, 1000);
+  camera.position.set(0, 2.5, 6);
   return camera;
 }
 
@@ -82,10 +82,12 @@ function addGround() {
 
 function addLighting() {
   const spotLight = new THREE.SpotLight(0xffffff, 3000, 100, 0.4, 1);
-  spotLight.position.set(0, 25, 0);
+  spotLight.position.set(0, 25, 5);
   spotLight.castShadow = true;
   spotLight.shadow.bias = -0.0001;
   scene.add(spotLight);
+
+  return spotLight;
 }
 
 function createGUI(models) {
@@ -101,6 +103,18 @@ function createGUI(models) {
   gui.addColor(params, "color")
     .name("Color")
     .onChange(value => updateModelColor(value));
+
+     // Add lighting controls to the GUI
+  const lightFolder = gui.addFolder("Lighting");
+  lightFolder.add(spotLight, "intensity", 0, 3000).name("Intensity");
+  lightFolder.addColor({ color: spotLight.color.getHex() }, "color")
+    .name("Light Color")
+    .onChange(value => spotLight.color.set(value));
+
+  lightFolder.add(spotLight.position, "x", -50, 50).name("Position X");
+  lightFolder.add(spotLight.position, "y", -50, 50).name("Position Y");
+  lightFolder.add(spotLight.position, "z", -50, 50).name("Position Z");
+  lightFolder.open();
 }
 
 function handleModelSelection(value, modelMap) {
@@ -223,11 +237,8 @@ function checkFileExists(fileUrl) {
 function handleModelLoadSuccess(model) {
   selectedObject = model;
 
-  // Scale the model
-  const box = new THREE.Box3().setFromObject(model);
-  const size = box.getSize(new THREE.Vector3());
-  const scale = (1 / Math.max(size.x, size.y, size.z)) * 4;
-  model.scale.set(scale, scale, scale);
+  // Normalize model size
+  normalizeModelSize(model, 5);
 
   // Configure shadows and material
   model.traverse((child) => {
@@ -243,7 +254,7 @@ function handleModelLoadSuccess(model) {
   });
 
   // Position and add to scene
-  model.position.set(0, 1.05, -1);
+  model.position.set(0, 0, 0);
   scene.add(model);
 
   progressContainer.style.display = 'none';
@@ -252,6 +263,17 @@ function handleModelLoadSuccess(model) {
 function handleModelLoadingProgress(xhr) {
   const percentage = ((xhr.loaded / xhr.total) * 100).toFixed(2);
   console.log(`Loading progress: ${percentage}%`);
+}
+
+function normalizeModelSize(model, maxSize) {
+  const box = new THREE.Box3().setFromObject(model);
+  const size = box.getSize(new THREE.Vector3());
+  const largestDimension = Math.max(size.x, size.y, size.z);
+
+  if (largestDimension > 0) {
+    const scale = maxSize / largestDimension;
+    model.scale.set(scale, scale, scale);
+  }
 }
 
 function resetScene() {
@@ -269,6 +291,9 @@ function handleWindowResize() {
 
 function animate() {
   requestAnimationFrame(animate);
+  if(selectedObject) {
+    selectedObject.rotation.y += 0.005;
+  }
   controls.update();
   renderer.render(scene, camera);
   stats.update();
