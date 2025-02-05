@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import Stats from 'three/addons/libs/stats.module.js';
 import * as dat from "https://cdn.skypack.dev/dat.gui";
@@ -135,32 +136,58 @@ async function fetchModels() {
 
 function loadModel(url) {
   resetScene();
+  if (url.endsWith('.gltf') || url.endsWith('.glb')) {
+    const loader = new GLTFLoader();
+    loader.load(
+      url,
+      object => handleModelLoadSuccess(object.scene),
+      xhr => handleModelLoadingProgress(xhr),
+      error => console.error('Error loading model:', error)
+    );
+  } else if (url.endsWith('.obj')) {
+    const objPath = url;
+    const mtlPath = url.replace('.obj', '.mtl');
 
-  const loader = getModelLoader(url);
-  loader.load(
-    url,
-    object => handleModelLoadSuccess(object),
-    xhr => handleModelLoadingProgress(xhr),
-    error => console.error('Error loading model:', error)
-  );
+    const mtlLoader = new MTLLoader();
+    mtlLoader.load(
+      mtlPath,
+      (materials) => {
+        materials.preload();
+
+        const objLoader = new OBJLoader();
+        objLoader.setMaterials(materials); // Attach materials to OBJLoader
+        objLoader.load(
+          objPath,
+          (object) => handleModelLoadSuccess(object),
+          xhr => handleModelLoadingProgress(xhr),
+          error => console.error('Error loading model:', error)
+        );
+      },
+      xhr => console.log(`Loading MTL ${((xhr.loaded / xhr.total) * 100).toFixed(2)}%`),
+      (error) => console.error('Error loading MTL file:', error)
+    );
+  }
 }
 
-function getModelLoader(url) {
-  return url.endsWith('.gltf') || url.endsWith('.glb') ? new GLTFLoader() : new OBJLoader();
-}
-
-function handleModelLoadSuccess(object) {
-  const model = object.scene || object;
+function handleModelLoadSuccess(model) {
   selectedObject = model;
+  const box = new THREE.Box3().setFromObject(model);
+  const size = box.getSize(new THREE.Vector3());
 
-  model.traverse(child => {
+  const scale = (1 / Math.max(size.x, size.y, size.z)) * 4;
+  model.scale.set(scale, scale, scale);
+
+  model.traverse((child) => {
     if (child.isMesh) {
       child.castShadow = true;
       child.receiveShadow = true;
-      child.material.color.set(params.color);
+      if (Array.isArray(child.material)) {
+        child.material.forEach(x => x.color.set(params.color))
+      } else {
+        child.material.color.set(params.color);
+      }
     }
   });
-
   model.position.set(0, 1.05, -1);
   scene.add(model);
   progressContainer.style.display = 'none';
