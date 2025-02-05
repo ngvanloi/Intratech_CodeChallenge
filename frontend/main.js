@@ -148,25 +148,65 @@ function loadModel(url) {
     const objPath = url;
     const mtlPath = url.replace('.obj', '.mtl');
 
-    const mtlLoader = new MTLLoader();
-    mtlLoader.load(
-      mtlPath,
-      (materials) => {
-        materials.preload();
+    checkFileExists(mtlPath)
+    .then((exists) => {
+      if (exists) {
+        // Load the .mtl file
+        const mtlLoader = new MTLLoader();
+        mtlLoader.load(
+          mtlPath,
+          (materials) => {
+            if (!materials) {
+              console.warn('MTL file exists but no materials found.');
+              loadObjWithoutMaterial(objPath);
+              return;
+            }
+            materials.preload();
 
-        const objLoader = new OBJLoader();
-        objLoader.setMaterials(materials); // Attach materials to OBJLoader
-        objLoader.load(
-          objPath,
-          (object) => handleModelLoadSuccess(object),
-          xhr => handleModelLoadingProgress(xhr),
-          error => console.error('Error loading model:', error)
+            // Load .obj with materials
+            const objLoader = new OBJLoader();
+            objLoader.setMaterials(materials);
+            objLoader.load(
+              objPath,
+              (object) => handleModelLoadSuccess(object),
+              (xhr) => handleModelLoadingProgress(xhr),
+              (error) => console.error('Error loading model:', error)
+            );
+          },
+          (xhr) => console.log(`Loading MTL ${((xhr.loaded / xhr.total) * 100).toFixed(2)}%`),
+          (error) => {
+            console.error('Error loading MTL file:', error);
+            loadObjWithoutMaterial(objPath); // Fallback to .obj without material
+          }
         );
-      },
-      xhr => console.log(`Loading MTL ${((xhr.loaded / xhr.total) * 100).toFixed(2)}%`),
-      (error) => console.error('Error loading MTL file:', error)
-    );
+      } else {
+        console.warn('No MTL file found. Loading OBJ without material.');
+        loadObjWithoutMaterial(objPath);
+      }
+    })
+    .catch((error) => console.error('Error checking MTL file existence:', error));
   }
+}
+
+function loadObjWithoutMaterial(objPath) {
+  const objLoader = new OBJLoader();
+  objLoader.load(
+    objPath,
+    (object) => handleModelLoadSuccess(object),
+    (xhr) => handleModelLoadingProgress(xhr),
+    (error) => console.error('Error loading OBJ file:', error)
+  );
+}
+
+// Utility function to check if a file exists
+function checkFileExists(fileUrl) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('HEAD', fileUrl, true);
+    xhr.onload = () => resolve(xhr.status === 200);
+    xhr.onerror = () => reject(new Error(`Failed to check file: ${fileUrl}`));
+    xhr.send();
+  });
 }
 
 function handleModelLoadSuccess(model) {
