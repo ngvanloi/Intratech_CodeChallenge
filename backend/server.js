@@ -15,9 +15,10 @@ app.use('/models', express.static(modelsDir));
 // RESTful API to fetch available models
 app.get('/api/models', (req, res) => {
     const models = [
-        { name: 'Example GLB', url: '/models/trailer_glb/scene.glb' },
-        { name: 'Example OBJ', url: '/models/r2-d2/r2-d2.obj' },
-        { name: 'Example GLTF', url: '/models/trailer_gltf/scene.gltf' },
+        { name: 'GLB', url: '/models/trailer_glb/scene.glb' },
+        { name: 'GLTF', url: '/models/trailer_gltf/scene.gltf' },
+        { name: 'OBJ without MTL', url: '/models/trailer_obj/scene.obj' },
+        { name: 'OBJ With MTL', url: '/models/r2-d2/r2-d2.obj' },
     ];
     res.json(models);
 });
