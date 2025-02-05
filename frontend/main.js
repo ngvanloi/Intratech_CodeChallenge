@@ -136,56 +136,68 @@ async function fetchModels() {
 
 function loadModel(url) {
   resetScene();
-  if (url.endsWith('.gltf') || url.endsWith('.glb')) {
-    const loader = new GLTFLoader();
-    loader.load(
-      url,
-      object => handleModelLoadSuccess(object.scene),
-      xhr => handleModelLoadingProgress(xhr),
-      error => console.error('Error loading model:', error)
-    );
-  } else if (url.endsWith('.obj')) {
-    const objPath = url;
-    const mtlPath = url.replace('.obj', '.mtl');
 
-    checkFileExists(mtlPath)
+  if (url.endsWith('.gltf') || url.endsWith('.glb')) {
+    loadGLTFModel(url);
+  } else if (url.endsWith('.obj')) {
+    loadOBJModel(url);
+  } else {
+    console.warn('Unsupported file format:', url);
+  }
+}
+
+function loadGLTFModel(url) {
+  const loader = new GLTFLoader();
+  loader.load(
+    url,
+    (object) => handleModelLoadSuccess(object.scene),
+    (xhr) => handleModelLoadingProgress(xhr),
+    (error) => console.error('Error loading model:', error)
+  );
+}
+
+function loadOBJModel(objPath) {
+  const mtlPath = objPath.replace('.obj', '.mtl');
+
+  checkFileExists(mtlPath)
     .then((exists) => {
       if (exists) {
-        // Load the .mtl file
-        const mtlLoader = new MTLLoader();
-        mtlLoader.load(
-          mtlPath,
-          (materials) => {
-            if (!materials) {
-              console.warn('MTL file exists but no materials found.');
-              loadObjWithoutMaterial(objPath);
-              return;
-            }
-            materials.preload();
-
-            // Load .obj with materials
-            const objLoader = new OBJLoader();
-            objLoader.setMaterials(materials);
-            objLoader.load(
-              objPath,
-              (object) => handleModelLoadSuccess(object),
-              (xhr) => handleModelLoadingProgress(xhr),
-              (error) => console.error('Error loading model:', error)
-            );
-          },
-          (xhr) => console.log(`Loading MTL ${((xhr.loaded / xhr.total) * 100).toFixed(2)}%`),
-          (error) => {
-            console.error('Error loading MTL file:', error);
-            loadObjWithoutMaterial(objPath); // Fallback to .obj without material
-          }
-        );
+        loadOBJWithMaterial(objPath, mtlPath);
       } else {
         console.warn('No MTL file found. Loading OBJ without material.');
         loadObjWithoutMaterial(objPath);
       }
     })
     .catch((error) => console.error('Error checking MTL file existence:', error));
-  }
+}
+
+function loadOBJWithMaterial(objPath, mtlPath) {
+  const mtlLoader = new MTLLoader();
+  mtlLoader.load(
+    mtlPath,
+    (materials) => {
+      if (!materials) {
+        console.warn('MTL file exists but no materials found.');
+        loadObjWithoutMaterial(objPath);
+        return;
+      }
+
+      materials.preload();
+      const objLoader = new OBJLoader();
+      objLoader.setMaterials(materials);
+      objLoader.load(
+        objPath,
+        (object) => handleModelLoadSuccess(object),
+        (xhr) => handleModelLoadingProgress(xhr),
+        (error) => console.error('Error loading model:', error)
+      );
+    },
+    (xhr) => console.log(`Loading MTL ${(xhr.loaded / xhr.total * 100).toFixed(2)}%`),
+    (error) => {
+      console.error('Error loading MTL file:', error);
+      loadObjWithoutMaterial(objPath); // Fallback
+    }
+  );
 }
 
 function loadObjWithoutMaterial(objPath) {
@@ -198,7 +210,6 @@ function loadObjWithoutMaterial(objPath) {
   );
 }
 
-// Utility function to check if a file exists
 function checkFileExists(fileUrl) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -211,30 +222,36 @@ function checkFileExists(fileUrl) {
 
 function handleModelLoadSuccess(model) {
   selectedObject = model;
+
+  // Scale the model
   const box = new THREE.Box3().setFromObject(model);
   const size = box.getSize(new THREE.Vector3());
-
   const scale = (1 / Math.max(size.x, size.y, size.z)) * 4;
   model.scale.set(scale, scale, scale);
 
+  // Configure shadows and material
   model.traverse((child) => {
     if (child.isMesh) {
       child.castShadow = true;
       child.receiveShadow = true;
       if (Array.isArray(child.material)) {
-        child.material.forEach(x => x.color.set(params.color))
+        child.material.forEach((mat) => mat.color.set(params.color));
       } else {
         child.material.color.set(params.color);
       }
     }
   });
+
+  // Position and add to scene
   model.position.set(0, 1.05, -1);
   scene.add(model);
+
   progressContainer.style.display = 'none';
 }
 
 function handleModelLoadingProgress(xhr) {
-  console.log(`Loading ${((xhr.loaded / xhr.total) * 100).toFixed(2)}%`);
+  const percentage = ((xhr.loaded / xhr.total) * 100).toFixed(2);
+  console.log(`Loading progress: ${percentage}%`);
 }
 
 function resetScene() {
